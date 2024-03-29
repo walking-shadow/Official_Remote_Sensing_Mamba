@@ -1,6 +1,6 @@
 <div align="center">
     <h2>
-        RSVMamba: Dense Prediction of Large remote sensing images
+        RS-Mamba for Large Remote Sensing Image Dense Prediction
     </h2>
 </div>
 <br>
@@ -29,14 +29,14 @@
 <br>
 <br>
 
-[![GitHub stars](https://badgen.net/github/stars/walking-shadow/Official_Remote_Sensing_Vision_Mamba)](https://github.com/walking-shadow/Official_Remote_Sensing_Vision_Mamba)
+[![GitHub stars](https://badgen.net/github/stars/walking-shadow/Official_Remote_Sensing_Mamba)](https://github.com/walking-shadow/Official_Remote_Sensing_Mamba)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
 [![arXiv](https://img.shields.io/badge/arXiv-xxxxx-b31b1b.svg)](https://arxiv.org/abs/xxxx)
 
 <!-- [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/KyanChen/RSMamba) -->
 
-<br>
-<br>
+<!-- <br>
+<br> -->
 
 <div align="center">
 
