@@ -1,6 +1,6 @@
 <div align="center">
     <h2>
-        RSVMamba: Dense Prediction of Large remote sensing images
+        RS-Mamba: Dense Prediction of Large remote sensing images
     </h2>
 </div>
 <br>
