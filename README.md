@@ -106,6 +106,8 @@
 
 **步骤 2**：运行以下命令安装依赖包
 
+如果你只需要使用模型代码，则不需要这一步.
+
 ```shell
 pip install -r requirements.txt
 ```

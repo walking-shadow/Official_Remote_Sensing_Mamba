@@ -107,6 +107,8 @@ If you find this project helpful, please give us a star ⭐️.
 
 **Step 2**: Run the following command to install dependencies.
 
+If you only use the model code, this step is not needed.
+
 ```shell
 pip install -r requirements.txt
 ```
