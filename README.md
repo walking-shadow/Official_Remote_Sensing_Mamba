@@ -14,7 +14,7 @@
     <span style="font-size: 20px; ">项目主页</span>
   </a>
        -->
-  <a href="https://arxiv.org/abs/xxxx">
+  <a href="http://arxiv.org/abs/2404.02668">
     <span style="font-size: 20px; ">arXiv</span>
   </a>
       
@@ -31,7 +31,7 @@
 
 [![GitHub stars](https://badgen.net/github/stars/walking-shadow/Official_Remote_Sensing_Mamba)](https://github.com/walking-shadow/Official_Remote_Sensing_Mamba)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![arXiv](https://img.shields.io/badge/arXiv-xxxxx-b31b1b.svg)](https://arxiv.org/abs/xxxx)
+[![arXiv](https://img.shields.io/badge/arXiv-2404.02668-b31b1b.svg)](http://arxiv.org/abs/2404.02668)
 
 <!-- [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/KyanChen/RSMamba) -->
 
@@ -46,7 +46,7 @@
 
 ## 简介
 
-本项目仓库是论文 [RS-Mamba for Large Remote Sensing Image Dense Prediction](https://arxiv.org/abs/xxxx) 的代码实现，在 [VMamba](https://github.com/MzeroMiko/VMamba) 项目环境的基础上进行开发。
+本项目仓库是论文 [RS-Mamba for Large Remote Sensing Image Dense Prediction](http://arxiv.org/abs/2404.02668) 的代码实现，在 [VMamba](https://github.com/MzeroMiko/VMamba) 项目环境的基础上进行开发。
 
 如果你觉得本项目对你有帮助，请给我们一个 star ⭐️。
 

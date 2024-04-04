@@ -14,7 +14,7 @@
     <span style="font-size: 20px; ">项目主页</span>
   </a>
        -->
-  <a href="https://arxiv.org/abs/xxxx">
+  <a href="http://arxiv.org/abs/2404.02668">
     <span style="font-size: 20px; ">arXiv</span>
   </a>
       
@@ -31,7 +31,7 @@
 
 [![GitHub stars](https://badgen.net/github/stars/walking-shadow/Official_Remote_Sensing_Mamba)](https://github.com/walking-shadow/Official_Remote_Sensing_Mamba)
 [![license](https://img.shields.io/badge/license-Apache--2.0-green)](LICENSE)
-[![arXiv](https://img.shields.io/badge/arXiv-xxxxx-b31b1b.svg)](https://arxiv.org/abs/xxxx)
+[![arXiv](https://img.shields.io/badge/arXiv-2404.02668-b31b1b.svg)](http://arxiv.org/abs/2404.02668)
 
 <!-- [![Hugging Face Spaces](https://img.shields.io/badge/%F0%9F%A4%97%20Hugging%20Face-Spaces-blue)](https://huggingface.co/spaces/KyanChen/RSMamba) -->
 
@@ -47,7 +47,7 @@ English | [简体中文](README.md)
 ## Introduction
 
 
-The repository for this project is the code implementation of the paper [RS-Mamba for Large Remote Sensing Image Dense Prediction](https://arxiv.org/abs/xxxx), developed based on the environment of the [VMamba](https://github.com/MzeroMiko/VMamba).
+The repository for this project is the code implementation of the paper [RS-Mamba for Large Remote Sensing Image Dense Prediction](http://arxiv.org/abs/2404.02668), developed based on the environment of the [VMamba](https://github.com/MzeroMiko/VMamba).
 
 If you find this project helpful, please give us a star ⭐️.
 
