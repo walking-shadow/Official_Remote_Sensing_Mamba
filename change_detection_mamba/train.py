@@ -14,7 +14,7 @@ import os
 import logging
 import random
 import wandb
-from rs_mamba_cd.rs_mamba_cd import RSM_CD
+from rs_mamba_cd import RSM_CD
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score
 from utils.utils import train_val_test
 from torch.utils.data import DataLoader
@@ -58,13 +58,13 @@ def train_net(dataset_name):
     # 1. Create dataset, checkpoint and best model path
 
     # dataset path should be dataset_name/train or val/t1 or t2 or label
-    train_dataset = BasicDataset(t1_images_dir=f'./{dataset_name}/train/t1/',
-                                 t2_images_dir=f'./{dataset_name}/train/t2/',
-                                 labels_dir=f'./{dataset_name}/train/label/',
+    train_dataset = BasicDataset(t1_images_dir=f'{ph.root_dir}/{dataset_name}/train/t1/',
+                                 t2_images_dir=f'{ph.root_dir}/{dataset_name}/train/t2/',
+                                 labels_dir=f'{ph.root_dir}/{dataset_name}/train/label/',
                                  train=True)
-    val_dataset = BasicDataset(t1_images_dir=f'./{dataset_name}/val/t1/',
-                               t2_images_dir=f'./{dataset_name}/val/t2/',
-                               labels_dir=f'./{dataset_name}/val/label/',
+    val_dataset = BasicDataset(t1_images_dir=f'{ph.root_dir}/{dataset_name}/val/t1/',
+                               t2_images_dir=f'{ph.root_dir}/{dataset_name}/val/t2/',
+                               labels_dir=f'{ph.root_dir}/{dataset_name}/val/label/',
                                train=False)
 
     # 2. Markdown dataset size

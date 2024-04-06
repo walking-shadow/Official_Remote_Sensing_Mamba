@@ -25,7 +25,7 @@ class Path_Hyperparameter:
 
 
     # model hyper-parameter
-    # VSSM tiny
+    # RSM-CD tiny
     drop_path_rate = 0.2
     dims = 96
     depths = [ 2, 2, 9, 2 ]
@@ -40,6 +40,7 @@ class Path_Hyperparameter:
     image_size = 256
     downsample_raito = 1
     dataset_name = 'your_dataset_name'
+    root_dir = '.'  # the root dir of your dataset
 
     # inference parameter
     log_path = './log_feature/'

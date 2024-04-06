@@ -40,99 +40,119 @@
 
 <div align="center">
 
-English | [简体中文](README.md)
+[English](README.md) | 简体中文
 
 </div>
 
-## Introduction
+## 简介
 
+本项目仓库是论文 [RS-Mamba for Large Remote Sensing Image Dense Prediction](http://arxiv.org/abs/2404.02668) 的代码实现，在 [VMamba](https://github.com/MzeroMiko/VMamba) 项目环境的基础上进行开发。
 
-The repository for this project is the code implementation of the paper [RS-Mamba for Large Remote Sensing Image Dense Prediction](http://arxiv.org/abs/2404.02668), developed based on the environment of the [VMamba](https://github.com/MzeroMiko/VMamba).
-
-If you find this project helpful, please give us a star ⭐️.
+如果你觉得本项目对你有帮助，请给我们一个 star ⭐️。
 
 <details open>
-<summary>Main Contribution</summary>
+<summary>主要贡献</summary>
 
-- Introducing the state space model (SSM) for the first time into dense prediction tasks in remote sensing, achieving linear complexity of the model.
-- Compared to previous CNN models that cannot globally model and transformer models that cannot handle large remote sensing images, RS-Mamba achieves linear complexity while being able to globally model, enabling it to handle large remote sensing images retaining a substantial amount of contextual information.
-- Experimental results on semantic segmentation and change detection tasks demonstrate that RS-Mamba, with its simple model architecture and training approach, achieves state-of-the-art performance and holds significant potential.
-
-
+- 首次将状态空间模型（SSM）引入遥感密集预测任务，RSM在具有全局有效感受野的同时具有线性复杂度，从而能够处理保留了丰富上下文信息的大遥感图像
+·
+- 针对遥感图像的空间特征分布在多个方向的特点，RSM通过在多个方向对图像进行选择性扫描，从而能够在多个方向上进行全局建模，并提取出多个方向的大尺度空间特征
+·
+- 语义分割和变化检测任务上的实验证明了，RSM在使用最简单的模型架构和训练方法的情况下，仍然能够达到SOTA效果，具有很大的潜力
 
 </details>
 
-## Updates
+## 更新日志
 
-🌟 **2024.03.29** Released the RS-Mamba project
+🌟 **2024.03.29** 发布了 RS-Mamba 项目
+
+🌟 **2024.04.06** 模型代码和训练框架代码已开源
 
 ## TODO
 
-- [ ] Open source the model code
-- [ ] Open source the training code
+- [X] 开源模型代码
+- [X] 开源训练框架
 
+## 目录
 
-## Table of Contents
-
-- [Introduction](#introduction)
-- [Updates](#updates)
+- [简介](#简介)
+- [更新日志](#更新日志)
 - [TODO](#todo)
-- [Table of Contents](#table-of-contents)
-- [Installation](#installation)
-  - [Environment Setting](#environment-setting)
-- [Dataset Preparation](#dataset-preparation)
-  - [Remote Sensing Semantic Segmentation Dataset](#remote-sensing-semantic-segmentation-dataset)
-    - [Massachusetts Roads Dataset](#massachusetts-roads-dataset)
-    - [WHU Dataset](#whu-dataset)
-    - [Organization](#organization)
-  - [Remote Sensing Change Detection Dataset](#remote-sensing-change-detection-dataset)
-    - [WHU-CD Dataset](#whu-cd-dataset)
-    - [LEIVR-CD Dataset](#leivr-cd-dataset)
-    - [Organization](#organization-1)
-- [FAQ](#faq)
-  - [1. Problems when installing selective\_scan package in Vmamba](#1-problems-when-installing-selective_scan-package-in-vmamba)
-  - [2. ModuleNotFoundError: No module named 'selective\_scan\_cuda' when running the code](#2-modulenotfounderror-no-module-named-selective_scan_cuda-when-running-the-code)
-- [Citation](#citation)
-- [License](#license)
+- [目录](#目录)
+- [文件夹与文件说明](#文件夹与文件说明)
+- [安装](#安装)
+  - [环境安装](#环境安装)
+- [数据集准备](#数据集准备)
+  - [遥感图像语义分割数据集](#遥感图像语义分割数据集)
+    - [Massachusetts Roads 数据集](#massachusetts-roads-数据集)
+    - [WHU 数据集](#whu-数据集)
+    - [组织方式](#组织方式)
+  - [遥感图像变化检测数据集](#遥感图像变化检测数据集)
+    - [WHU-CD 数据集](#whu-cd-数据集)
+    - [LEIVR-CD 数据集](#leivr-cd-数据集)
+    - [组织方式](#组织方式-1)
+- [模型训练与推理](#模型训练与推理)
+  - [语义分割模型训练与推理](#语义分割模型训练与推理)
+  - [变化检测模型训练与推理](#变化检测模型训练与推理)
+- [常见问题](#常见问题)
+  - [1. 安装VMamba环境中的selective\_scan库出现问题](#1-安装vmamba环境中的selective_scan库出现问题)
+  - [2. 运行时出现 ModuleNotFoundError: No module named 'selective\_scan\_cuda'](#2-运行时出现-modulenotfounderror-no-module-named-selective_scan_cuda)
+- [引用](#引用)
+- [开源许可证](#开源许可证)
+- [论文解读](#论文解读)
+
 <!-- - [致谢](#致谢) -->
+
+- [引用](#引用)
+- [开源许可证](#开源许可证)
+
 <!-- - [联系我们](#联系我们) -->
 
-## Installation
+- [论文解读](#论文解读)
 
-### Environment Setting
+## 文件夹与文件说明
+
+`semantci_segmentation_mamba`文件夹和`change_detection_mamba`文件夹分别为进行遥感语义分割和变化检测任务的代码，它们具有相同的文件组织方式。
+
+以`change_detection_mamba`文件夹为例，其中的`train.py`和`inference.py`分别为训练和推理代码，`rs_mamba_cd.py`为模型代码，`utils`文件夹存放着各类其他的代码文件。
+
+`utils`文件夹中`data_loading.py`为数据加载代码文件；`dataset_process.py`为数据集处理文件，包含对变化检测数据集进行预处理的各种函数；`losses.py`为损失函数代码文件；`path_hyperparameter.py`存放着各种模型和训练的超参数，数据集的名字和模型的超参数也在其中设置；`utils.py`包含训练和验证的代码。
+
+## 安装
+
+### 环境安装
 
 <details open>
 
-**Step 1**: Follow the installation instructions of the [VMamba project](https://github.com/MzeroMiko/VMamba) to install the "rs_mamba" environment.
+**步骤 1**：按照[Vmamba项目](https://github.com/MzeroMiko/VMamba)的环境安装指示，安装好"rs_mamba"环境
 
-**Step 2**: Run the following command to install dependencies.
+**步骤 2**：运行以下命令安装依赖包
 
-If you only use the model code, this step is not needed.
+如果你只需要使用模型代码，则不需要这一步.
 
 ```shell
 pip install -r requirements.txt
 ```
 
-## Dataset Preparation
+## 数据集准备
 
 <details open>
 
-### Remote Sensing Semantic Segmentation Dataset
+### 遥感图像语义分割数据集
 
-#### Massachusetts Roads Dataset
+#### Massachusetts Roads 数据集
 
-- Dataset Download: [Massachusetts Roads Dataset](https://www.cs.toronto.edu/~vmnih/data/)。
+- 数据集下载地址：[Massachusetts Roads 数据集](https://www.cs.toronto.edu/~vmnih/data/)。
 
-#### WHU Dataset
+#### WHU 数据集
 
-- Dataset Download: [WHU Dataset](http://gpcv.whu.edu.cn/data/building_dataset.html)。
+- 数据集下载地址： [WHU 数据集](http://gpcv.whu.edu.cn/data/building_dataset.html)。
 
-#### Organization
+#### 组织方式
 
-You need to organize the data set into the following format:
+你需要将数据集组织成如下的格式：
 
 ```
-${DATASET_ROOT} # dataset root dir
+${DATASET_ROOT} # 数据集根目录，
 ├── train
     ├── image
         └── 0001.tif
@@ -162,22 +182,22 @@ ${DATASET_ROOT} # dataset root dir
         └── ...
 ```
 
-### Remote Sensing Change Detection Dataset
+### 遥感图像变化检测数据集
 
-#### WHU-CD Dataset
+#### WHU-CD 数据集
 
-- Dataset Download: [WHU-CD Dataset](http://gpcv.whu.edu.cn/data/building_dataset.html)。
+- 数据集下载地址：[WHU-CD 数据集](http://gpcv.whu.edu.cn/data/building_dataset.html)。
 
-#### LEIVR-CD Dataset
+#### LEIVR-CD 数据集
 
-- Dataset Download: [LEVIR-CD Dataset](https://chenhao.in/LEVIR/)。
+- 数据集下载地址： [LEVIR-CD 数据集](https://chenhao.in/LEVIR/)。
 
-#### Organization
+#### 组织方式
 
-You need to organize the data set into the following format:
+你需要将数据集组织成如下的格式：
 
 ```
-${DATASET_ROOT} # dataset root dir
+${DATASET_ROOT} # 数据集根目录，
 ├── train
     ├── t1
         └── 0001.tif
@@ -217,6 +237,60 @@ ${DATASET_ROOT} # dataset root dir
         └── 0001.tif
         └── 0002.tif
         └── ...
+```
+
+## 模型训练与推理
+
+模型训练和推理的所有超参数都在utils/path_hyperparameter.py文件中，每个超参数都有对应的注释进行解释。
+
+### 语义分割模型训练与推理
+
+首先在命令行运行以下命令跳转到语义分割文件夹下
+
+```
+cd semantic_segmentation_mamba
+```
+
+在命令行中运行下面的代码来开始训练
+```
+python train.py
+```
+
+如果你想在训练的时候进行调试，在命令行中运行下面的命令
+
+```
+python -m ipdb train.py
+```
+
+在命令行中运行下面的代码来开始测试或者推理
+
+```
+python inference.py
+```
+
+### 变化检测模型训练与推理
+
+首先在命令行运行以下命令跳转到语义分割文件夹下
+
+```
+cd change_detection_mamba
+```
+
+在命令行中运行下面的代码来开始训练
+```
+python train.py
+```
+
+如果你想在训练的时候进行调试，在命令行中运行下面的命令
+
+```
+python -m ipdb train.py
+```
+
+在命令行中运行下面的代码来开始测试或者推理
+
+```
+python inference.py
 ```
 
 <!-- ## 模型训练
@@ -300,30 +374,43 @@ python demo/image_demo.py ${IMAGE_FILE}  configs/rsmamba/name_to_config.py --che
 python demo/image_demo.py ${IMAGE_DIR}  configs/rsmamba/name_to_config.py --checkpoint ${CHECKPOINT_FILE} --show-dir ${OUTPUT_DIR}  # IMAGE_DIR 为你想要预测的图像文件夹，name_to_config.py 为你想要使用的配置文件，CHECKPOINT_FILE 为你想要使用的检查点文件，OUTPUT_DIR 为预测结果的输出路径
 ``` -->
 
-## FAQ
+## 常见问题
 
 <details open>
 
-Here we have listed some common problems in use and their corresponding solutions, and if there are frequently recurring problems in the issue, they will also be listed here.
+我们在这里列出了使用时的一些常见问题及其相应的解决方案，后续如果issue中有经常出现的问题，也会在这里列出来。
 
-### 1. Problems when installing selective_scan package in Vmamba
+### 1. 安装VMamba环境中的selective_scan库出现问题
 
-You can refer to [issue102](https://github.com/MzeroMiko/VMamba/issues/102) and [issue95](https://github.com/MzeroMiko/VMamba/issues/95) of VMamba, My approach is to ask GPT4, and get a feasible solution, using conda to update GCC, relevant questions and answers are [here](https://chat.openai.com/share/afa38b89-db2d-4db0-aa61-7af16b067335).
+可以参考VMamba的[issue102](https://github.com/MzeroMiko/VMamba/issues/102), [issue95](https://github.com/MzeroMiko/VMamba/issues/95), 我的做法是询问GPT4之后，得到了可行的解决方法，使用conda更新GCC即可，相关询问和回答在[这里](https://chat.openai.com/share/afa38b89-db2d-4db0-aa61-7af16b067335).
 
-### 2. ModuleNotFoundError: No module named 'selective_scan_cuda' when running the code
+### 2. 运行时出现 ModuleNotFoundError: No module named 'selective_scan_cuda'
 
-You can refer to [issue55](https://github.com/MzeroMiko/VMamba/issues/55), selective_scan_cuda is dispensable.
+可以参考VMamba的[issue55](https://github.com/MzeroMiko/VMamba/issues/55), selective_scan_cuda不是必要的
 
 </details>
 
-## Citation
+## 引用
 
-If you are using this project's code or performance benchmarks in your research, please refer to bibtex to reference RSMamba below.
+如果你在研究中使用了本项目的代码或者性能基准，请参考如下 bibtex 引用 RSMamba。
 
 ```
-xxxx
+@misc{zhao2024rsmamba,
+      title={RS-Mamba for Large Remote Sensing Image Dense Prediction}, 
+      author={Sijie Zhao and Hao Chen and Xueliang Zhang and Pengfeng Xiao and Lei Bai and Wanli Ouyang},
+      year={2024},
+      eprint={2404.02668},
+      archivePrefix={arXiv},
+      primaryClass={cs.CV}
+}
 ```
 
-## License
+## 开源许可证
 
-This project is licensed under the [Apache 2.0 License](LICENSE)。
+该项目采用 [Apache 2.0 开源许可证](LICENSE)。
+
+## 论文解读
+
+关于这篇论文的中文解读，你可以参照这篇[知乎文章](https://zhuanlan.zhihu.com/p/689797214)
+
+关于SSM和Mamba的学习，可以参照这两篇知乎回答：[如何理解 Mamba 模型 Selective State Spaces?](https://www.zhihu.com/question/644981978/answer/3405813530), [如何理解语言模型的训练和推理复杂度?](https://www.zhihu.com/question/644981909/answer/3401898757)

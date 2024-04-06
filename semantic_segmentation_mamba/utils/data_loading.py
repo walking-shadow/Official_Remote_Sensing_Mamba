@@ -62,7 +62,7 @@ class BasicDataset(Dataset):
 
     def __len__(self):
         """ Return length of dataset."""
-        return len(self.t1_path_file)
+        return len(self.ids)
 
     @classmethod
     def label_preprocess(cls, label):
