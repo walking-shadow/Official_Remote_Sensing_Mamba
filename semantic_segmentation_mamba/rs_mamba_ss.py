@@ -583,7 +583,7 @@ class PatchMerging2D(nn.Module):
         return x
 
 
-class SS2D(nn.Module):
+class OSSM(nn.Module):
     def __init__(
         self,
         # basic dims ===========
@@ -907,7 +907,7 @@ class Mlp(nn.Module):
         return x
 
 
-class VSSBlock(nn.Module):
+class OSSBlock(nn.Module):
     def __init__(
         self,
         hidden_dim: int = 0,
@@ -940,13 +940,13 @@ class VSSBlock(nn.Module):
 
         try:
             from ss2d_ablations import SS2DDev
-            _SS2D = SS2DDev if forward_type.startswith("dev") else SS2D
+            _OSSM = SS2DDev if forward_type.startswith("dev") else OSSM
         except:
-            _SS2D = SS2D
+            _OSSM = OSSM
 
         if self.ssm_branch:
             self.norm = norm_layer(hidden_dim)
-            self.op = _SS2D(
+            self.op = _OSSM(
                 d_model=hidden_dim, 
                 d_state=ssm_d_state, 
                 ssm_ratio=ssm_ratio,
@@ -1015,376 +1015,10 @@ class Decoder_Block(nn.Module):
         output = self.fuse(output)
 
         return output
-    
-class Fuse_Block(nn.Module):
-    """Basic block in decoder."""
-
-    def __init__(self, in_channel):
-        super().__init__()
-
-        self.fuse = nn.Sequential(nn.Conv2d(in_channels=in_channel*2, out_channels=in_channel,
-                                            kernel_size=1, padding=0, bias=False),
-                                  nn.BatchNorm2d(in_channel),
-                                  nn.ReLU(inplace=True),
-                                  )
-
-    def forward(self, x1, x2):
-        # shapes of x1 and x2 are b,h,w,c
-        x1 = rearrange(x1, "b h w c -> b c h w").contiguous()
-        x2 = rearrange(x2, "b h w c -> b c h w").contiguous()
-        output = torch.cat([x1, x2], dim=1)
-        output = self.fuse(output)
-
-        return output
 
 
-# compatible with openmmlab
-class Backbone_VSSM(VSSM):
-    def __init__(self, out_indices=(0, 1, 2, 3), pretrained=None, norm_layer=nn.LayerNorm, **kwargs):
-        kwargs.update(norm_layer=norm_layer)
-        super().__init__(**kwargs)
-        
-        self.out_indices = out_indices
-        for i in out_indices:
-            layer = norm_layer(self.dims[i])
-            layer_name = f'outnorm{i}'
-            self.add_module(layer_name, layer)
 
-        del self.classifier
-        self.load_pretrained(pretrained)
-
-    def load_pretrained(self, ckpt=None, key="model"):
-        if ckpt is None:
-            return
-        
-        try:
-            _ckpt = torch.load(open(ckpt, "rb"), map_location=torch.device("cpu"))
-            print(f"Successfully load ckpt {ckpt}")
-            incompatibleKeys = self.load_state_dict(_ckpt[key], strict=False)
-            print(incompatibleKeys)        
-        except Exception as e:
-            print(f"Failed loading checkpoint form {ckpt}: {e}")
-
-    def forward(self, x):
-        def layer_forward(l, x):
-            x = l.blocks(x)
-            y = l.downsample(x)
-            return x, y
-
-        x = self.patch_embed(x)
-        outs = []
-        for i, layer in enumerate(self.layers):
-            o, x = layer_forward(layer, x) # (B, H, W, C)
-            if i in self.out_indices:
-                norm_layer = getattr(self, f'outnorm{i}')
-                out = norm_layer(o)
-                out = out.permute(0, 3, 1, 2).contiguous()
-                outs.append(out)
-
-        if len(self.out_indices) == 0:
-            return x
-        
-        return outs
-
-
-# ==================================================
-def check_vssm_equals_vmambadp():
-    try:
-        from _ignore.vmamba.vmamba_bak1 import VMamba2Dp
-        from _ignore.vmamba.vmamba_pub import VSSM
-    except:
-        print("original VSSM and VMamba2Dp not found.", flush=True)
-        return 
-
-    # test 1 True =================================
-    torch.manual_seed(time.time()); torch.cuda.manual_seed(time.time())
-    oldvss = VMamba2Dp(depths=[2,2,6,2]).half().cuda()
-    newvss = VSSM(depths=[2,2,6,2]).half().cuda()
-    newvss.load_state_dict(oldvss.state_dict())
-    input = torch.randn((12, 3, 224, 224)).half().cuda()
-    torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward_backbone(input)
-    torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y2 = newvss.forward_backbone(input)
-    print((y1 -y2).abs().sum()) # tensor(0., device='cuda:0', grad_fn=<SumBackward0>)
-    
-    torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward(input)
-    torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y2 = newvss.forward(input)
-    print((y1 -y2).abs().sum()) # tensor(0., device='cuda:0', grad_fn=<SumBackward0>)
-    
-    # test 2 True ==========================================
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    oldvss = VMamba2Dp(depths=[2,2,6,2]).cuda()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    newvss = VSSM(depths=[2,2,6,2]).cuda()
-
-    miss_align = 0
-    for k, v in oldvss.state_dict().items(): 
-        same = (oldvss.state_dict()[k] == newvss.state_dict()[k]).all()
-        if not same:
-            print(k, same)
-            miss_align += 1
-    print("init miss align", miss_align) # init miss align 0
-
-
-def check_vssm1_equals_vssm(forward_type="v0"):
-    try:
-        from _ignore.vmamba.vmamba_pub import VSSM as VSSM0
-    except:
-        print("original VSSM and VMamba2Dp not found.", flush=True)
-        return
-
-    class VSSM_(VSSM):
-        @staticmethod
-        def _make_layer(*args, **kwargs):
-            layer = VSSM._make_layer(*args, **kwargs)
-            dim = kwargs.get("dim", None)
-            norm_layer = kwargs.get("norm_layer", None)
-            downsample = kwargs.get("downsample", None)
-            blocks = layer.blocks
-        
-            if True: # is this really applied? Yes, but been overriden later in VSSM!
-                def _init_weights(module: nn.Module):
-                    for name, p in module.named_parameters():
-                        if name in ["out_proj.weight"]:
-                            p = p.clone().detach_() # fake init, just to keep the seed ....
-                            nn.init.kaiming_uniform_(p, a=math.sqrt(5))
-                blks = nn.Sequential(*copy.deepcopy(blocks))
-                blks.apply(_init_weights)
-
-            downsample = PatchMerging2D(dim, 2*dim, norm_layer=norm_layer) if downsample is None else nn.Identity()
-            
-            return nn.Sequential(OrderedDict(
-                blocks=nn.Sequential(*blocks,),
-                downsample=downsample,
-            ))
-
-        def forward_backbone(self, x):
-            x = self.patch_embed(x)
-            for l in self.layers:
-                x = l(x)
-            return x
-
-        def forward1(self, x: torch.Tensor):
-            x = self.patch_embed(x)
-            for layer in self.layers:
-                x = layer(x)
-            x = self.classifier.norm(x)
-            # here: whether has contiguous would differ
-            x = self.classifier.avgpool(x.permute(0, 3, 1, 2).contiguous()).flatten(1)
-            x = self.classifier.head(x)
-            return x
-
-    # only has initial difference 
-    VSSM1 = partial(VSSM, downsample_version="v1", patchembed_version="v1", mlp_ratio=0.0, ssm_ratio=2.0, forward_type=forward_type)
-    VSSM.forward_backbone = VSSM_.forward_backbone 
-    VSSM.forward1 = VSSM_.forward1
-    # expected to be all the same 
-    VSSM1 = partial(VSSM_, downsample_version="none", patchembed_version="v1", mlp_ratio=0.0, ssm_ratio=2.0, forward_type=forward_type)
-
-    # test 1 True =================================
-    torch.manual_seed(time.time()); torch.cuda.manual_seed(time.time())
-    oldvss = VSSM0(depths=[2,2,6,2]).half().cuda()
-    newvss = VSSM1(depths=[2,2,6,2]).half().cuda()
-    newvss.load_state_dict(oldvss.state_dict())
-    input = torch.randn((12, 3, 224, 224)).half().cuda()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward_backbone(input)
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y2 = newvss.forward_backbone(input)
-    print((y1 -y2).abs().sum()) # tensor(0., device='cuda:0', grad_fn=<SumBackward0>)
-    
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward(input)
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y2 = newvss.forward1(input)
-    print((y1 -y2).abs().sum()) # tensor(2.5988e-05, device='cuda:0', grad_fn=<SumBackward0>)
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y3 = newvss.forward(input)
-    print((y1 -y3).abs().sum()) # tensor(0., device='cuda:0', grad_fn=<SumBackward0>)
-    
-    # test 2 True ==========================================
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    oldvss = VSSM0(depths=[2,2,6,2]).cuda()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    newvss = VSSM1(depths=[2,2,6,2]).cuda()
-
-    miss_align = 0
-    oldvss2new = copy.deepcopy(newvss)
-    oldvss2new.load_state_dict(oldvss.state_dict())
-    for k, v in oldvss2new.state_dict().items(): 
-        same = (oldvss2new.state_dict()[k] == newvss.state_dict()[k]).all()
-        if not same:
-            print(k, same)
-            miss_align += 1
-    print("init miss align", miss_align) # init miss align 0
-
-
-def check_vssm1_ssoflex_equals_mambassm():
-    # only has initial difference
-    VSSM0 = partial(VSSM, downsample_version="v3", patchembed_version="v2", mlp_ratio=4.0, ssm_ratio=2.0, forward_type="v2")
-    VSSM1 = partial(VSSM, downsample_version="v3", patchembed_version="v2", mlp_ratio=4.0, ssm_ratio=2.0, forward_type="v01")
-
-    # test 1 True =================================
-    print('start test 1')
-    torch.manual_seed(time.time()); torch.cuda.manual_seed(time.time())
-    oldvss = VSSM0(depths=[2,2,6,2]).half().cuda()
-    newvss = VSSM1(depths=[2,2,6,2]).half().cuda()
-    newvss.load_state_dict(oldvss.state_dict())
-    input0 = torch.randn((12, 3, 224, 224)).half().cuda().requires_grad_()
-    input1 = input0.detach().clone().requires_grad_()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward(input0)
-        y1.sum().backward()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y2 = newvss.forward(input1)
-        y2.sum().backward()
-    print((y1 - y2).abs().sum()) # tensor(0., device='cuda:0', dtype=torch.float16, grad_fn=<SumBackward0>)
-    print((input0.grad - input1.grad).abs().sum()) # tensor(6.6016, device='cuda:0', dtype=torch.float16)
-    
-    # test 2 True ==========================================
-    print('start test 2')
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    oldvss = VSSM0(depths=[2,2,6,2]).cuda()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    newvss = VSSM1(depths=[2,2,6,2]).cuda()
-
-    miss_align = 0
-    oldvss2new = copy.deepcopy(newvss)
-    oldvss2new.load_state_dict(oldvss.state_dict())
-    for k, v in oldvss2new.state_dict().items(): 
-        same = (oldvss2new.state_dict()[k] == newvss.state_dict()[k]).all()
-        if not same:
-            print(k, same)
-            miss_align += 1
-    print("init miss align", miss_align) # init miss align 0
-
-def check_vssmrun():
-        # only has initial difference
-    VSSM0 = partial(VSSM, downsample_version="v3", patchembed_version="v2", mlp_ratio=4.0, ssm_ratio=2.0, forward_type="v3noz")
-    print('VSSM created.')
-
-    # test 1 True =================================
-    print('start test 1')
-    torch.manual_seed(time.time()); torch.cuda.manual_seed(time.time())
-    oldvss = VSSM0(depths=[2,2,6,2]).half().cuda()
-    input0 = torch.randn((12, 3, 256, 256)).half().cuda().requires_grad_()
-    input1 = torch.randn((12, 3, 256, 256)).half().cuda().requires_grad_()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    with torch.cuda.amp.autocast():
-        y1 = oldvss.forward(input0, input1)
-        y1.sum().backward()
-    torch.manual_seed(0); torch.cuda.manual_seed(0)
-    print(f'vssm rum success! Got y_mean:{y1.mean()}')
-
-
-def check_vssblock():
-    import triton
-    from torchvision.models.vision_transformer import EncoderBlock
-
-    vb = VSSBlock(
-        hidden_dim=16, 
-        drop_path=0.0, 
-        norm_layer=nn.LayerNorm, 
-        ssm_d_state=1, 
-        ssm_ratio=2, 
-        ssm_dt_rank="auto", 
-        ssm_act_layer=nn.SiLU,
-        ssm_conv=3, 
-        ssm_conv_bias=False, 
-        ssm_drop_rate=0.0, 
-        ssm_init="v0", 
-        forward_type="v2", 
-        mlp_ratio=4, 
-        mlp_act_layer=nn.GELU, 
-        mlp_drop_rate=0.0, 
-        use_checkpoint=False,
-    ).cuda()
-    
-    trans = EncoderBlock(
-        num_heads=1, 
-        hidden_dim=16, 
-        mlp_dim=int(4.0 * 16), 
-        dropout=0.0, 
-        attention_dropout=0.0, 
-        norm_layer=nn.LayerNorm,
-    ).cuda()
-
-    inp = torch.randn((16, 128, 128, 16)).cuda().requires_grad_()
-    inp2 = inp.detach().cuda().view(16, -1, 16).requires_grad_()
-    fn = lambda :vb(inp)
-    ms = triton.testing.do_bench(fn, warmup=100)
-    print(ms)
-    fn = lambda :trans(inp2)
-    ms = triton.testing.do_bench(fn, warmup=100)
-    print(ms)
-    fn = lambda :vb(inp).sum().backward()
-    ms = triton.testing.do_bench(fn, warmup=100)
-    print(ms)
-    fn = lambda :trans(inp2).sum().backward()
-    ms = triton.testing.do_bench(fn, warmup=100)
-    print(ms)
-    import time; time.sleep(10000)
-
-
-def check_profile():
-    vss = VSSM(depths=[1], dims=1024).half().cuda()
-    input = torch.randn((128, 3, 56, 56)).half().cuda()
-    torch.cuda.manual_seed(0)
-
-    def trace_handler(prof: torch.profiler.profile):
-        print(prof.key_averages().table(sort_by="self_cuda_time_total", row_limit=-1))
-        # print(prof.export_chrome_trace("./tracev1.json"))
-
-    with torch.cuda.amp.autocast():
-        # with torch.autograd.profiler.profile(enabled=True, use_cuda=True, record_shapes=False, profile_memory=True, with_stack=True) as prof:
-        with torch.profiler.profile(
-            with_modules=True,
-            with_stack=True,
-            profile_memory=True,
-            activities=[
-                torch.profiler.ProfilerActivity.CPU,
-                torch.profiler.ProfilerActivity.CUDA,
-            ],
-
-            # In this example with wait=1, warmup=1, active=2, repeat=1,
-            # profiler will skip the first step/iteration,
-            # start warming up on the second, record
-            # the third and the forth iterations,
-            # after which the trace will become available
-            # and on_trace_ready (when set) is called;
-            # the cycle repeats starting with the next step
-
-            schedule=torch.profiler.schedule(
-                wait=1,
-                warmup=1,
-                active=2,
-                repeat=1),
-            on_trace_ready=trace_handler
-            # on_trace_ready=torch.profiler.tensorboard_trace_handler('./log')
-            # used when outputting for tensorboard
-            ) as prof:
-                for iter in range(1000):
-                    x = input
-                    # with torch.autograd.profiler.record_function("patch_embed"):
-                    #     x = self.patch_embed(x)
-                    prof.step()
-
-
-class VSSM(nn.Module):
+class RSM_SS(nn.Module):
     def __init__(
         self, 
         patch_size=4, 
@@ -1460,7 +1094,6 @@ class VSSM(nn.Module):
 
         # self.encoder_layers = [nn.ModuleList()] * self.num_layers
         self.encoder_layers = []
-        self.fuse_layers = []
         self.decoder_layers = []
 
         for i_layer in range(self.num_layers):
@@ -1497,21 +1130,12 @@ class VSSM(nn.Module):
                 mlp_act_layer=mlp_act_layer,
                 mlp_drop_rate=mlp_drop_rate,
             ))
-            self.fuse_layers.append(Fuse_Block(in_channel=self.dims[i_layer]))
             if i_layer != 0:
                 self.decoder_layers.append(Decoder_Block(in_channel=self.dims[i_layer], out_channel=self.dims[i_layer-1]))
 
         self.encoder_block1, self.encoder_block2, self.encoder_block3, self.encoder_block4 = self.encoder_layers
-        self.fuse_block1, self.fuse_block2, self.fuse_block3, self.fuse_block4 = self.fuse_layers
         self.deocder_block1, self.deocder_block2, self.deocder_block3 = self.decoder_layers
 
-        # self.classifier = nn.Sequential(OrderedDict(
-        #     norm=norm_layer(self.num_features), # B,H,W,C
-        #     permute=Permute(0, 3, 1, 2),
-        #     avgpool=nn.AdaptiveAvgPool2d(1),
-        #     flatten=nn.Flatten(1),
-        #     head=nn.Linear(self.num_features, num_classes),
-        # ))
         
         self.upsample_x4 = nn.Sequential(
             nn.Conv2d(self.dims[0], self.dims[0]//2, kernel_size=3, stride=1, padding=1),
@@ -1523,7 +1147,7 @@ class VSSM(nn.Module):
             nn.ReLU(inplace=True),
             nn.UpsamplingBilinear2d(scale_factor=2)
         )
-        self.conv_out_change = nn.Conv2d(8, 1, kernel_size=7, stride=1, padding=3)
+        self.conv_out_seg = nn.Conv2d(8, 1, kernel_size=7, stride=1, padding=3)
 
         self.apply(self._init_weights)
 
@@ -1612,7 +1236,7 @@ class VSSM(nn.Module):
         depth = len(drop_path)
         blocks = []
         for d in range(depth):
-            blocks.append(VSSBlock(
+            blocks.append(OSSBlock(
                 hidden_dim=dim, 
                 drop_path=drop_path[d],
                 norm_layer=norm_layer,
@@ -1644,31 +1268,20 @@ class VSSM(nn.Module):
     #     x = self.classifier(x)
     #     return x
 
-    def forward(self, x1: torch.Tensor, x2: torch.Tensor):
+    def forward(self, x1: torch.Tensor):
         x1 = self.patch_embed(x1)
-        x2 = self.patch_embed(x2)
 
         x1_1 = self.encoder_block1(x1)
         x1_2 = self.encoder_block2(x1_1)
         x1_3 = self.encoder_block3(x1_2)
         x1_4 = self.encoder_block4(x1_3)  # b,h,w,c
 
-        x2_1 = self.encoder_block1(x2)
-        x2_2 = self.encoder_block2(x2_1)
-        x2_3 = self.encoder_block3(x2_2)
-        x2_4 = self.encoder_block4(x2_3)  # b,h,w,c
-
-        fuse_1 = self.fuse_block1(x1_1, x2_1)
-        fuse_2 = self.fuse_block2(x1_2, x2_2)
-        fuse_3 = self.fuse_block3(x1_3, x2_3)
-        fuse_4 = self.fuse_block4(x1_4, x2_4)
-
-        decode_3 = self.deocder_block3(fuse_4, fuse_3)
-        decode_2 = self.deocder_block2(decode_3, fuse_2)
-        decode_1 = self.deocder_block1(decode_2, fuse_1)
+        decode_3 = self.deocder_block3(x1_4, x1_3)
+        decode_2 = self.deocder_block2(decode_3, x1_2)
+        decode_1 = self.deocder_block1(decode_2, x1_1)
 
         output = self.upsample_x4(decode_1)
-        output = self.conv_out_change(output)
+        output = self.conv_out_seg(output)
 
         return output
 
@@ -1735,20 +1348,6 @@ class VSSM(nn.Module):
         change_name("head", "classifier.head")
 
         return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
-
-
-if __name__ == "__main__":
-
-    # check_vssblock()
-    # check_vssm_equals_vmambadp()
-    # check_vssm1_equals_vssm(forward_type="v0")
-    # check_vssm1_equals_vssm(forward_type="v0_seq")
-    # check_vssm1_equals_vssm(forward_type="v2")
-    # print(VSSM(forward_type="v0").flops())
-    # print(VSSM(forward_type="v2").flops())
-    # print(VSSM(forward_type="v2nozact").flops())
-
-    check_vssmrun()
 
     
 
