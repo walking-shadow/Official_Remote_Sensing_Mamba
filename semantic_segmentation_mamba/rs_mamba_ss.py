@@ -1044,8 +1044,6 @@ class RSM_SS(nn.Module):
         drop_path_rate=0.1, 
         patch_norm=True, 
         norm_layer="LN",
-        downsample_version: str = "v2", # "v1", "v2", "v3"
-        patchembed_version: str = "v1", # "v1", "v2"
         use_checkpoint=False,  
         **kwargs,
     ):
@@ -1079,18 +1077,10 @@ class RSM_SS(nn.Module):
         if isinstance(mlp_act_layer, str) and mlp_act_layer.lower() in ["silu", "gelu", "relu"]:
             mlp_act_layer: nn.Module = _ACTLAYERS[mlp_act_layer.lower()]
 
-        _make_patch_embed = dict(
-            v1=self._make_patch_embed, 
-            v2=self._make_patch_embed_v2,
-        ).get(patchembed_version, None)
+        _make_patch_embed = self._make_patch_embed_v2,
         self.patch_embed = _make_patch_embed(in_chans, dims[0], patch_size, patch_norm, norm_layer)
 
-        _make_downsample = dict(
-            v1=PatchMerging2D, 
-            v2=self._make_downsample, 
-            v3=self._make_downsample_v3, 
-            none=(lambda *_, **_k: None),
-        ).get(downsample_version, None)
+        _make_downsample = self._make_downsample_v3
 
         # self.encoder_layers = [nn.ModuleList()] * self.num_layers
         self.encoder_layers = []
@@ -1160,24 +1150,6 @@ class RSM_SS(nn.Module):
             nn.init.constant_(m.bias, 0)
             nn.init.constant_(m.weight, 1.0)
 
-    # used in building optimizer
-    # @torch.jit.ignore
-    # def no_weight_decay(self):
-    #     return {}
-
-    # used in building optimizer
-    # @torch.jit.ignore
-    # def no_weight_decay_keywords(self):
-    #     return {}
-
-    @staticmethod
-    def _make_patch_embed(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm):
-        return nn.Sequential(
-            nn.Conv2d(in_chans, embed_dim, kernel_size=patch_size, stride=patch_size, bias=True),
-            Permute(0, 2, 3, 1),
-            (norm_layer(embed_dim) if patch_norm else nn.Identity()), 
-        )
-
     @staticmethod
     def _make_patch_embed_v2(in_chans=3, embed_dim=96, patch_size=4, patch_norm=True, norm_layer=nn.LayerNorm):
         assert patch_size == 4
@@ -1192,14 +1164,6 @@ class RSM_SS(nn.Module):
             (norm_layer(embed_dim) if patch_norm else nn.Identity()),
         )
     
-    @staticmethod
-    def _make_downsample(dim=96, out_dim=192, norm_layer=nn.LayerNorm):
-        return nn.Sequential(
-            Permute(0, 3, 1, 2),
-            nn.Conv2d(dim, out_dim, kernel_size=2, stride=2),
-            Permute(0, 2, 3, 1),
-            norm_layer(out_dim),
-        )
 
     @staticmethod
     def _make_downsample_v3(dim=96, out_dim=192, norm_layer=nn.LayerNorm):
@@ -1261,12 +1225,6 @@ class RSM_SS(nn.Module):
             blocks=nn.Sequential(*blocks,),
         ))
 
-    # def forward(self, x: torch.Tensor):
-    #     x = self.patch_embed(x)
-    #     for layer in self.layers:
-    #         x = layer(x)
-    #     x = self.classifier(x)
-    #     return x
 
     def forward(self, x1: torch.Tensor):
         x1 = self.patch_embed(x1)
@@ -1291,69 +1249,7 @@ class RSM_SS(nn.Module):
 
         return output
 
-    def flops(self, shape=(3, 224, 224)):
-        # shape = self.__input_shape__[1:]
-        supported_ops={
-            "aten::silu": None, # as relu is in _IGNORED_OPS
-            "aten::neg": None, # as relu is in _IGNORED_OPS
-            "aten::exp": None, # as relu is in _IGNORED_OPS
-            "aten::flip": None, # as permute is in _IGNORED_OPS
-            # "prim::PythonOp.CrossScan": None,
-            # "prim::PythonOp.CrossMerge": None,
-            "prim::PythonOp.SelectiveScanMamba": selective_scan_flop_jit,
-            "prim::PythonOp.SelectiveScanOflex": selective_scan_flop_jit,
-            "prim::PythonOp.SelectiveScanCore": selective_scan_flop_jit,
-            "prim::PythonOp.SelectiveScanNRow": selective_scan_flop_jit,
-        }
 
-        model = copy.deepcopy(self)
-        model.cuda().eval()
-
-        input = torch.randn((1, *shape), device=next(model.parameters()).device)
-        params = parameter_count(model)[""]
-        Gflops, unsupported = flop_count(model=model, inputs=(input,), supported_ops=supported_ops)
-
-        del model, input
-        return sum(Gflops.values()) * 1e9
-        return f"params {params} GFLOPs {sum(Gflops.values())}"
-
-    # used to load ckpt from previous training code
-    def _load_from_state_dict(self, state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs):
-
-        def check_name(src, state_dict: dict = state_dict, strict=False):
-            if strict:
-                if prefix + src in list(state_dict.keys()):
-                    return True
-            else:
-                key = prefix + src
-                for k in list(state_dict.keys()):
-                    if k.startswith(key):
-                        return True
-            return False
-
-        def change_name(src, dst, state_dict: dict = state_dict, strict=False):
-            if strict:
-                if prefix + src in list(state_dict.keys()):
-                    state_dict[prefix + dst] = state_dict[prefix + src]
-                    state_dict.pop(prefix + src)
-            else:
-                key = prefix + src
-                for k in list(state_dict.keys()):
-                    if k.startswith(key):
-                        new_k = prefix + dst + k[len(key):]
-                        state_dict[new_k] = state_dict[k]
-                        state_dict.pop(k)
-
-        change_name("patch_embed.proj", "patch_embed.0")
-        change_name("patch_embed.norm", "patch_embed.2")
-        for i in range(100):
-            for j in range(100):
-                change_name(f"layers.{i}.blocks.{j}.ln_1", f"layers.{i}.blocks.{j}.norm")
-                change_name(f"layers.{i}.blocks.{j}.self_attention", f"layers.{i}.blocks.{j}.op")
-        change_name("norm", "classifier.norm")
-        change_name("head", "classifier.head")
-
-        return super()._load_from_state_dict(state_dict, prefix, local_metadata, strict, missing_keys, unexpected_keys, error_msgs)
 
     
 

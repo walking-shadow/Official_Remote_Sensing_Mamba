@@ -33,8 +33,8 @@ class Path_Hyperparameter:
     ssm_dt_rank = "auto"
     ssm_ratio = 2.0
     mlp_ratio = 4.0
-    downsample_version = "v3"
-    patchembed_version = "v2"
+    # downsample_version = "v3"
+    # patchembed_version = "v2"
 
     # data parameter
     image_size = 256
