@@ -60,7 +60,7 @@ def train_net(dataset_name, load_checkpoint=True):
             batch_img2 = batch_img2.float().to(device)
             labels = labels.float().to(device)
 
-            cd_preds = net(batch_img1, batch_img2, log=True, img_name=name)
+            cd_preds = net(batch_img1, batch_img2)
             cd_preds = torch.sigmoid(cd_preds)
 
             # Calculate and log other batch metrics
