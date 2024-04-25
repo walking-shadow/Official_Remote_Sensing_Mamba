@@ -1077,7 +1077,7 @@ class RSM_SS(nn.Module):
         if isinstance(mlp_act_layer, str) and mlp_act_layer.lower() in ["silu", "gelu", "relu"]:
             mlp_act_layer: nn.Module = _ACTLAYERS[mlp_act_layer.lower()]
 
-        _make_patch_embed = self._make_patch_embed_v2,
+        _make_patch_embed = self._make_patch_embed_v2
         self.patch_embed = _make_patch_embed(in_chans, dims[0], patch_size, patch_norm, norm_layer)
 
         _make_downsample = self._make_downsample_v3
