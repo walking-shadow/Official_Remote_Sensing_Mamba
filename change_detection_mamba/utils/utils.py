@@ -153,7 +153,7 @@ def train_val_test(
                 loss_change, diceloss, foclaloss = criterion(preds, labels)
             cd_loss = loss_change.mean()
             grad_scaler.scale(cd_loss).backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 20, norm_type=2)
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 1, norm_type=2)
             grad_scaler.step(optimizer)
             grad_scaler.update()
             
