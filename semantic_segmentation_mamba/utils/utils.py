@@ -29,7 +29,7 @@ def save_model(model, path, epoch, mode, optimizer=None):
     Path(path).mkdir(parents=True,
                      exist_ok=True)  # create a dictionary
     # ipdb.set_trace()
-    localtime = time.asctime(time.localtime(time.time()))
+    localtime = time.asctime(time.localtime(time.time())).replace(' ','_')
     if mode == 'checkpoint':
         state_dict = {'net': model.state_dict(), 'optimizer': optimizer.state_dict()}
         torch.save(state_dict,
@@ -117,20 +117,19 @@ def train_val_test(
         image = image.float().to(device)
         labels = labels.float().to(device)
 
-        # 按照特定的ratio对图像进行下采样
+        # Downsample the image according to a specific ratio
         b,c,h,w = image.shape
-        image = F.interpolate(image, size=(h//ph.downsample_raito, w//ph.downsample_raito), mode='bilinear', align_corners=False)
-        labels = F.interpolate(labels.unsqueeze(1), size=(h//ph.downsample_raito, w//ph.downsample_raito), mode='bilinear', align_corners=False).squeeze(1)
+        image = F.interpolate(image, size=(int(h//ph.downsample_ratio), int(w//ph.downsample_ratio)), mode='bilinear', align_corners=False)
+        labels = F.interpolate(labels.unsqueeze(1), size=(int(h//ph.downsample_ratio), int(w//ph.downsample_ratio)), mode='bilinear', align_corners=False).squeeze(1)
 
 
-        # 对图片按照设定的图像大小进行拆分
-        crop_size = ph.image_size
+        # Split the image according to the set crop size
+        crop_size = ph.crop_size
 
-        # 使用unfold方法在H和W维度上提取小块
-        # unfold(dimension, size, step)沿着指定维度滑动窗口提取块
-        # 步长(step)等于块的大小意味着不会有重叠
+        # Use unfold method to extract small pieces in the H and W dimensions
+        # Step equal to the size of the block means there will be no overlap
         image_patches = image.unfold(2, crop_size, crop_size).unfold(3, crop_size, crop_size)
-        # patches的形状现在是[B, C, ratio, ratio, H/ratio, W/ratio]
+        # The shape of patches is now [B, C, ratio, ratio, H/ratio, W/ratio]
         # 调整形状以堆叠所有小块在batch维度上
         # 首先，我们计算出新的batch大小，然后重新排列维度
         B, C, new_H, new_W, _, _ = image_patches.size()
@@ -145,10 +144,10 @@ def train_val_test(
             # using amp
             with torch.cuda.amp.autocast():
                 preds = net(image)
-                loss_change, diceloss, foclaloss = criterion(preds, labels)
-            cd_loss = loss_change.mean()
-            grad_scaler.scale(cd_loss).backward()
-            torch.nn.utils.clip_grad_norm_(net.parameters(), 1, norm_type=2)
+                loss = criterion(preds, labels.long())
+
+            grad_scaler.scale(loss).backward()
+            torch.nn.utils.clip_grad_norm_(net.parameters(), 20, norm_type=2)
             grad_scaler.step(optimizer)
             grad_scaler.update()
             
@@ -161,11 +160,9 @@ def train_val_test(
             # optimizer.step()
         else:
             preds = net(image)
-            loss_change, diceloss, foclaloss = criterion(preds, labels)
-            cd_loss = loss_change.mean()
+            loss = criterion(preds, labels.long())
 
-        epoch_loss += cd_loss
-        preds = torch.sigmoid(preds)
+        epoch_loss += loss
 
         # log the t1_img, t2_img, pred and label
         if i == sample_batch:
@@ -175,19 +172,18 @@ def train_val_test(
             label_log = torch.round(labels[sample_index]).cpu().clone().float()
             pred_log = torch.round(preds[sample_index]).cpu().clone().float()
 
-        # print(f'pred shape:{preds.shape}, label shape:{labels.shape}')
-        batch_metrics = metric_collection.forward(preds.float(), labels.int().unsqueeze(1))  # compute metric
+        print(f'pred shape:{preds.shape}, label shape:{labels.shape}')
+
+        batch_metrics = metric_collection.forward(preds.float(), labels.long())  # compute metric
 
         # log loss and metric
         log_wandb.log({
-            f'{mode} loss': cd_loss,
+            f'{mode} loss': loss,
             f'{mode} accuracy': batch_metrics['accuracy'],
             f'{mode} precision': batch_metrics['precision'],
             f'{mode} recall': batch_metrics['recall'],
             f'{mode} f1score': batch_metrics['f1score'],
             'learning rate': optimizer.param_groups[0]['lr'],
-            f'{mode} loss_dice': diceloss,
-            f'{mode} loss_bce': foclaloss,
             'step': total_step,
             'epoch': epoch
         })

@@ -236,6 +236,9 @@ ${DATASET_ROOT} # dataset root dir
 
 All hyperparameters for model training and inference are located in the `utils/path_hyperparameter.py` file, with corresponding comments for explanation.
 
+In `utils/data_loading`, you will need to modify the `grayscale_label_preprocess` function in order to map pixel values to a class number.
+TODO: make this optional
+
 ### Training and Inference of Semantic Segmentation Model
 
 Firstly, navigate to the semantic segmentation folder by running the following command in the command line:

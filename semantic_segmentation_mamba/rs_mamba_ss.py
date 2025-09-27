@@ -1137,7 +1137,7 @@ class RSM_SS(nn.Module):
             nn.ReLU(inplace=True),
             nn.UpsamplingBilinear2d(scale_factor=2)
         )
-        self.conv_out_seg = nn.Conv2d(8, 1, kernel_size=7, stride=1, padding=3)
+        self.conv_out_seg = nn.Conv2d(8, self.num_classes, kernel_size=7, stride=1, padding=3)
 
         self.apply(self._init_weights)
 

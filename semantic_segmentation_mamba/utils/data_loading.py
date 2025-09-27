@@ -70,6 +70,14 @@ class BasicDataset(Dataset):
 
         label[label != 0] = 1
         return label
+    
+    @classmethod
+    def grayscale_label_preprocess(cls, label):
+        "To convert grayscale values to class indices"
+        label[label == 85] = 1
+        label[label == 170] = 2
+        return label
+    
 
     @classmethod
     def load(cls, filename):
@@ -107,7 +115,7 @@ class BasicDataset(Dataset):
         img = self.load(img_file[0])
 
         label = self.load(label_file[0])
-        label = self.label_preprocess(label)
+        label = self.grayscale_label_preprocess(label)
 
         if self.train:
             sample = self.train_transforms_all(image=img, mask=label)

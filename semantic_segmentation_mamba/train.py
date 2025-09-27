@@ -18,6 +18,10 @@ from rs_mamba_ss import RSM_SS
 from torchmetrics import MetricCollection, Accuracy, Precision, Recall, F1Score
 from utils.utils import train_val_test
 from torch.utils.data import DataLoader
+from torch.nn import CrossEntropyLoss
+
+if ph.gpu_id is not None:
+    os.environ['CUDA_VISIBLE_DEVICES'] = str(ph.gpu_id)  # set visible gpu id, if not set, all gpus will be used
 
 
 
@@ -108,8 +112,8 @@ def train_net(dataset_name):
 
     # 5. Set up model, optimizer, warm_up_scheduler, learning rate scheduler, loss function and other things
 
-    net = RSM_SS(dims=ph.dims, depths=ph.depths, ssm_d_state=ph.ssm_d_state, ssm_dt_rank=ph.ssm_dt_rank, \
-               ssm_ratio=ph.ssm_ratio, mlp_ratio=ph.mlp_ratio, downsample_version=ph.downsample_version, patchembed_version=ph.patchembed_version)  # change detection model
+    net = RSM_SS(num_classes=ph.num_classes, dims=ph.dims, depths=ph.depths, ssm_d_state=ph.ssm_d_state, ssm_dt_rank=ph.ssm_dt_rank, \
+               ssm_ratio=ph.ssm_ratio, mlp_ratio=ph.mlp_ratio)
     net = net.to(device=device)
     optimizer = optim.AdamW(net.parameters(), lr=ph.learning_rate,
                             weight_decay=ph.weight_decay)  # optimizer
@@ -133,14 +137,14 @@ def train_net(dataset_name):
     total_step = 0  # logging step
     lr = ph.learning_rate  # learning rate
 
-    criterion = FCCDN_loss_without_seg  # loss function
+    criterion = CrossEntropyLoss()  # loss function
 
     best_metrics = dict.fromkeys(['best_f1score', 'lowest loss'], 0)  # best evaluation metrics
     metric_collection = MetricCollection({
-        'accuracy': Accuracy().to(device=device),
-        'precision': Precision().to(device=device),
-        'recall': Recall().to(device=device),
-        'f1score': F1Score().to(device=device)
+        'accuracy': Accuracy(ignore_index=None, num_classes=ph.num_classes, multiclass=True, mdmc_average='global').to(device=device),
+        'precision': Precision(ignore_index=None, num_classes=ph.num_classes, multiclass=True, mdmc_average='global').to(device=device),
+        'recall': Recall(ignore_index=None, num_classes=ph.num_classes, multiclass=True, mdmc_average='global').to(device=device),
+        'f1score': F1Score(ignore_index=None, num_classes=ph.num_classes, multiclass=True, mdmc_average='global').to(device=device)
     })  # metrics calculator
 
     to_pilimg = T.ToPILImage()  # convert to PIL image to log in wandb
